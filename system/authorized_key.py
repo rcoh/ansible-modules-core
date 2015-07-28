@@ -359,19 +359,24 @@ def enforce_state(module, params):
     exclusive   = params.get("exclusive", False)
     error_msg   = "Error getting key from: %s"
 
-    # if the key is a url, request it and use it as key source
-    if key.startswith("http"):
-        try:
-            resp, info = fetch_url(module, key)
-            if info['status'] != 200:
-                module.fail_json(msg=error_msg % key)
-            else:
-                key = resp.read()
-        except Exception:
-            module.fail_json(msg=error_msg % key)
+    # extract individual keys or urls into a newline-separated string
+    key_list = ""
+    for key_or_url in key.splitlines():
+        # if the key is a url, request it and use it as key source
+        if key_or_url.startswith("http"):
+            try:
+                resp, info = fetch_url(module, key_or_url)
+                if info['status'] != 200:
+                    module.fail_json(msg=error_msg % key_or_url)
+                else:
+                    key_list = key_list + resp.read() + '\n'
+            except Exception:
+                module.fail_json(msg=error_msg % key_or_url)
+        else:
+            key_list = key_list + key_or_url + '\n'
 
     # extract individual keys into an array, skipping blank lines and comments
-    key = [s for s in key.splitlines() if s and not s.startswith('#')]
+    key = [s for s in key_list.splitlines() if s and not s.startswith('#')]
 
     # check current state -- just get the filename, don't create file
     do_write = False
